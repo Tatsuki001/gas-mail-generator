@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GAS メール一括送信コード生成ツール</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f5f5f0;--fg:#1a1a1a;--card:#fff;--border:#e0ddd5;
+  --accent:#e8c547;--accent-hover:#d4b23e;--subtle:#fafaf8;
+  --error-bg:#fdf0f0;--error-border:#e8a0a0;--error-text:#8b2020;
+  --hint:#888;--mid:#555;--code-bg:#1a1a1a;--code-fg:#e8e8e0;
+  --font:'Noto Sans JP','Hiragino Sans',sans-serif;
+  --mono:'Source Code Pro','Courier New',monospace;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--fg);min-height:100vh}
+
+/* Header */
+.header{background:var(--fg);color:var(--bg);padding:28px 24px 24px;border-bottom:3px solid var(--accent)}
+.header h1{font-size:22px;font-weight:700;letter-spacing:.5px}
+.header p{font-size:13px;color:#aaa;margin-top:6px}
+
+/* Layout */
+.container{max-width:720px;margin:0 auto;padding:24px 16px 60px}
+
+/* Section */
+.section{background:var(--card);border-radius:10px;padding:24px;margin-bottom:20px;border:1px solid var(--border)}
+.section-title{font-size:15px;font-weight:700;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid var(--accent);display:flex;align-items:center;gap:8px}
+.section-num{background:var(--fg);color:var(--accent);width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+
+/* Fields */
+.field{margin-bottom:16px}
+.field label{display:block;font-size:13px;font-weight:600;color:#444;margin-bottom:6px}
+.field .req{color:#c0392b;font-size:11px;margin-left:4px}
+.field .hint{font-size:12px;color:var(--hint);margin-top:4px}
+input[type=text],input[type=number],textarea,select{
+  width:100%;padding:10px 12px;border:1px solid #d0cdc5;border-radius:6px;
+  font-size:14px;font-family:var(--font);background:var(--subtle);outline:none;
+  box-sizing:border-box;transition:border-color .2s
+}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{resize:vertical;line-height:1.6;font-family:var(--mono)}
+.col-input{text-transform:uppercase}
+
+/* Row layout */
+.row{display:flex;gap:12px}.row>div{flex:1}
+@media(max-width:560px){.row{flex-direction:column}}
+
+/* Filter box */
+.filter-box{background:var(--subtle);border-radius:8px;padding:16px;margin-top:8px;border:1px solid #e8e5dd}
+.filter-box .sub-title{font-size:13px;font-weight:600;margin-bottom:12px;color:var(--mid)}
+
+/* Condition rows */
+.cond-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.cond-row input{width:60px;padding:8px 10px;font-size:13px}
+.cond-row select{padding:8px 10px;font-size:13px;border:1px solid #d0cdc5;border-radius:6px;background:var(--subtle);font-family:var(--font)}
+.cond-row .val-input{width:140px}
+.cond-label{font-size:13px;color:var(--hint)}
+.remove-btn{font-size:18px;color:#999;background:none;border:none;cursor:pointer;padding:4px 8px}
+.remove-btn:hover{color:#c0392b}
+.add-btn{font-size:13px;color:var(--fg);background:#f0ede5;border:1px solid #d0cdc5;border-radius:6px;padding:6px 14px;cursor:pointer;font-family:var(--font)}
+.add-btn:hover{background:#e8e5dd}
+
+/* Advanced toggle */
+.adv-toggle{font-size:13px;color:#666;cursor:pointer;display:flex;align-items:center;gap:6px;padding:8px 0;user-select:none}
+.adv-toggle:hover{color:var(--fg)}
+.adv-arrow{transition:transform .2s;display:inline-block}
+.adv-arrow.open{transform:rotate(90deg)}
+
+/* Generate button */
+.gen-btn{
+  width:100%;padding:16px;font-size:16px;font-weight:700;font-family:var(--font);
+  color:var(--fg);background:var(--accent);border:none;border-radius:10px;
+  cursor:pointer;letter-spacing:1px;transition:background .2s;margin-top:8px
+}
+.gen-btn:hover{background:var(--accent-hover)}
+.gen-btn:active{transform:scale(.99)}
+
+/* Error */
+.error-box{background:var(--error-bg);border:1px solid var(--error-border);border-radius:8px;padding:14px 18px;margin-bottom:16px}
+.error-box div{font-size:13px;color:var(--error-text);margin-bottom:4px}
+
+/* Code output */
+.code-box{background:var(--code-bg);border-radius:10px;padding:20px;margin-top:20px;position:relative}
+.code-text{color:var(--code-fg);font-size:12px;font-family:var(--mono);white-space:pre-wrap;word-break:break-all;line-height:1.5;max-height:500px;overflow:auto}
+.copy-btn{
+  position:absolute;top:12px;right:12px;padding:8px 16px;font-size:13px;
+  font-weight:600;font-family:var(--font);color:var(--fg);background:var(--accent);
+  border:none;border-radius:6px;cursor:pointer;transition:background .2s
+}
+.copy-btn:hover{background:var(--accent-hover)}
+.copy-btn.copied{background:#4caf50;color:#fff}
+
+/* Preview */
+.preview-toggle{font-size:13px;color:var(--accent);cursor:pointer;margin-top:12px;display:inline-block}
+.preview-toggle:hover{text-decoration:underline}
+.preview-frame{background:#fff;border-radius:8px;padding:20px;margin-top:12px;max-height:400px;overflow:auto}
+.preview-subject{font-size:12px;color:#999;margin-bottom:8px}
+
+/* Usage */
+.usage{background:var(--subtle);font-size:13px;color:var(--mid);line-height:2}
+.usage code{background:#e8e5dd;padding:2px 6px;border-radius:3px;font-size:12px;font-family:var(--mono)}
+.usage .warn{color:#c0392b;font-size:12px}
+
+.hidden{display:none}
+.mode-btn{padding:8px 16px;font-size:13px;font-family:var(--font);border:1px solid #d0cdc5;background:var(--subtle);color:var(--mid);cursor:pointer;transition:all .2s}
+.mode-btn:first-child{border-radius:6px 0 0 6px}
+.mode-btn:last-child{border-radius:0 6px 6px 0;border-left:none}
+.mode-active{background:var(--fg);color:var(--accent);border-color:var(--fg);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>GAS メール一括送信コード生成</h1>
+  <p>必要項目を入力 → コードを生成 → GASに貼り付けるだけ</p>
+</div>
+
+<div class="container">
+  <div id="errors" class="error-box hidden"></div>
+
+  <!-- 1. 送信者情報 -->
+  <div class="section">
+    <div class="section-title"><span class="section-num">1</span>送信者情報</div>
+    <div class="field">
+      <label>送信元メールアドレス<span class="req">*必須</span></label>
+      <input type="text" id="fromEmail" placeholder="例: saotome-tatsuki@kollabv-j.com">
+      <div class="hint">Gmailの「アカウントとインポート」→「名前」でエイリアスとして登録済みのアドレスを入力してください。未登録だとエラーになります</div>
+    </div>
+    <div class="field">
+      <label>送信者名（差出人の表示名）</label>
+      <input type="text" id="senderName" placeholder="例: Tatsuki Saotome">
+      <div class="hint">空欄の場合、Gmailアカウントに設定されている名前が使われます</div>
+    </div>
+    <div class="row">
+      <div>
+        <div class="field">
+          <label>CC メールアドレス</label>
+          <input type="text" id="ccEmail" placeholder="例: team@example.com">
+          <div class="hint">空欄ならCCなし</div>
+        </div>
+      </div>
+      <div>
+        <div class="field">
+          <label>テスト送信先<span class="req">*必須</span></label>
+          <input type="text" id="testEmail" placeholder="例: mytest@gmail.com">
+          <div class="hint">sendTestEmail()で使用</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. スプレッドシート設定 -->
+  <div class="section">
+    <div class="section-title"><span class="section-num">2</span>スプレッドシート設定</div>
+    <div class="field">
+      <label>スプレッドシートURL</label>
+      <input type="text" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/xxxxx/edit">
+      <div class="hint">URLからIDを自動抽出。空欄ならGASがバインドされたシートを使用</div>
+    </div>
+    <div class="field">
+      <label>シート名（タブ名）</label>
+      <input type="text" id="sheetName" placeholder="例: アポリスト">
+      <div class="hint">空欄の場合は最初のシートを使用</div>
+    </div>
+    <div class="row">
+      <div>
+        <div class="field">
+          <label>メールアドレス列<span class="req">*必須</span></label>
+          <input type="text" id="emailCol" class="col-input" value="E" placeholder="E" maxlength="3">
+        </div>
+      </div>
+      <div>
+        <div class="field">
+          <label>対象 開始行</label>
+          <input type="number" id="startRow" value="3" min="1">
+          <div class="hint">ヘッダー除く</div>
+        </div>
+      </div>
+      <div>
+        <div class="field">
+          <label>対象 終了行</label>
+          <input type="number" id="endRow" value="1050" min="1">
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <div class="field">
+          <label>送信回数記録列</label>
+          <input type="text" id="sendCountCol" class="col-input" value="M" placeholder="M" maxlength="3">
+          <div class="hint">空欄なら回数制限なし</div>
+        </div>
+      </div>
+      <div>
+        <div class="field">
+          <label>最大送信回数</label>
+          <input type="number" id="maxSendCount" value="2" min="1">
+        </div>
+      </div>
+      <div></div>
+    </div>
+
+    <!-- フィルター -->
+    <div class="filter-box">
+      <div class="sub-title">送信条件フィルター</div>
+      <div class="row">
+        <div>
+          <div class="field">
+            <label>ステータス列</label>
+            <input type="text" id="statusCol" class="col-input" placeholder="C" maxlength="3">
+            <div class="hint">空欄ならフィルターなし</div>
+          </div>
+        </div>
+        <div>
+          <div class="field">
+            <label>一致する値</label>
+            <input type="text" id="statusValue" placeholder="例: ❼KLリスト">
+            <div class="hint">この値の行だけ送信</div>
+          </div>
+        </div>
+      </div>
+      <div class="sub-title" style="margin-top:12px">追加条件 <span style="font-weight:400;color:#999">（複数設定可）</span></div>
+      <div id="conditionsContainer"></div>
+      <button class="add-btn" onclick="addCondition()">＋ 条件を追加</button>
+    </div>
+  </div>
+
+  <!-- 3. メール内容 -->
+  <div class="section">
+    <div class="section-title"><span class="section-num">3</span>メール内容</div>
+    <div class="field">
+      <label>件名<span class="req">*必須</span></label>
+      <input type="text" id="subject" placeholder="例: マーケティング支援のご提案">
+    </div>
+    <div class="field">
+      <label>本文<span class="req">*必須</span></label>
+      <div style="display:flex;gap:0;margin-bottom:8px">
+        <button id="modeTextBtn" class="mode-btn mode-active" onclick="setBodyMode('text')">テキスト入力</button>
+        <button id="modeHtmlBtn" class="mode-btn" onclick="setBodyMode('html')">HTML貼り付け</button>
+      </div>
+      <textarea id="bodyText" rows="10" placeholder="お世話になっております。&#10;&#10;弊社のサービスをご紹介させていただきます。&#10;&#10;よろしくお願いいたします。"></textarea>
+      <div class="hint" id="bodyHint">プレーンテキストで入力 → モバイル最適化HTMLに自動変換されます</div>
+    </div>
+    <div class="field">
+      <label>署名（HTML可）</label>
+      <textarea id="signature" rows="6" placeholder='<strong style="color: #333;">山田太郎 会社名</strong><br>&#10;<a href="mailto:taro@example.com">taro@example.com</a><br>&#10;<a href="https://example.com/">https://example.com/</a><br>&#10;<strong>Zalo: <a href="https://zalo.me/0123456789">012 345 6789</a></strong><br>&#10;住所をここに&#10;<span style="font-style: italic; color: #888;">"キャッチコピー"</span>'></textarea>
+      <div class="hint">署名の「中身」だけ入力してください。外枠の区切り線・余白・フォントサイズは自動で付きます。HTMLタグ・リンクもOK。空欄なら署名なし</div>
+    </div>
+    <div class="field">
+      <label>添付ファイル（Google DriveのファイルIDまたはURL）</label>
+      <textarea id="fileIds" rows="3" placeholder="https://drive.google.com/file/d/xxxxx/view&#10;または&#10;1H9P3AShCtWy9zthojtnp1N4MLQ2wZFCE"></textarea>
+      <div class="hint">1行に1つずつ入力。URLを貼ってもIDを自動抽出します。空欄なら添付なし</div>
+    </div>
+  </div>
+
+  <!-- 4. 詳細設定 -->
+  <div class="adv-toggle" onclick="toggleAdvanced()">
+    <span class="adv-arrow" id="advArrow">▶</span>詳細設定（送信間隔・タイムアウト）
+  </div>
+  <div id="advSection" class="section hidden" style="margin-top:4px">
+    <div class="row">
+      <div>
+        <div class="field">
+          <label>送信間隔 (ms)</label>
+          <input type="number" id="waitMs" value="1500" min="500">
+          <div class="hint">推奨: 1000〜2000</div>
+        </div>
+      </div>
+      <div>
+        <div class="field">
+          <label>タイムアウト (分)</label>
+          <input type="number" id="timeoutMin" value="5" min="1" max="6">
+          <div class="hint">GAS上限は6分</div>
+        </div>
+      </div>
+      <div>
+        <div class="field">
+          <label>再開待ち (分)</label>
+          <input type="number" id="resumeMin" value="1" min="1">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="gen-btn" onclick="handleGenerate()">コードを生成する</button>
+
+  <!-- 出力 -->
+  <div id="outputArea" class="hidden">
+    <div class="code-box" style="position:relative">
+      <button class="copy-btn" id="copyBtn" onclick="handleCopy()">コピー</button>
+      <pre class="code-text" id="codeOutput"></pre>
+      <div class="preview-toggle" onclick="togglePreview()">▶ メールプレビューを表示</div>
+      <div id="previewArea" class="hidden">
+        <div class="preview-frame">
+          <div class="preview-subject" id="previewSubject"></div>
+          <div id="previewBody"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 使い方 -->
+  <div class="section usage" style="margin-top:24px">
+    <div style="font-size:14px;font-weight:700;margin-bottom:12px">使い方</div>
+    1. 上のフォームに必要情報を入力する<br>
+    2.「コードを生成する」ボタンを押す<br>
+    3. 生成されたコードをコピーする<br>
+    4. Google Apps Script エディタに貼り付ける<br>
+    5. まず <code>sendTestEmail</code> を実行してテスト<br>
+    6. 問題なければ <code>sendEmails</code> を実行<br>
+    <span class="warn">※ 初回実行時にGmail・Drive・Spreadsheetへのアクセス権限の承認が必要です</span>
+  </div>
+</div>
+
+<script>
+// --- Utility ---
+function $(id){return document.getElementById(id)}
+function val(id){return $(id).value.trim()}
+function numVal(id){return parseInt($(id).value)||0}
+
+let bodyMode='text'; // 'text' or 'html'
+function setBodyMode(mode){
+  bodyMode=mode;
+  $('modeTextBtn').className='mode-btn'+(mode==='text'?' mode-active':'');
+  $('modeHtmlBtn').className='mode-btn'+(mode==='html'?' mode-active':'');
+  if(mode==='html'){
+    $('bodyHint').textContent='HTMLをそのまま貼り付けてください（<ul><li>、<strong>、<a href>などすべて使えます）';
+    $('bodyText').placeholder='<p>お世話になっております。</p>\n<ul>\n  <li><strong>サービス1:</strong> 説明...</li>\n</ul>';
+  }else{
+    $('bodyHint').textContent='プレーンテキストで入力 → モバイル最適化HTMLに自動変換されます';
+    $('bodyText').placeholder='お世話になっております。\n\n弊社のサービスをご紹介させていただきます。\n\nよろしくお願いいたします。';
+  }
+}
+
+function colToIndex(c){
+  c=c.toUpperCase().trim();if(!c)return null;
+  let idx=0;for(let i=0;i<c.length;i++)idx=idx*26+(c.charCodeAt(i)-64);
+  return idx;
+}
+function escapeGAS(s){return s.replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$')}
+function extractFileId(input){
+  // Google Drive URLからファイルIDを抽出。IDだけならそのまま返す
+  const urlMatch=input.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if(urlMatch)return urlMatch[1];
+  const idMatch=input.match(/id=([a-zA-Z0-9_-]+)/);
+  if(idMatch)return idMatch[1];
+  // URLでなければそのままIDとして返す
+  return input.replace(/[^a-zA-Z0-9_-]/g,'');
+}
+function textToMobileHtml(text){
+  return text.split('\n').map(l=>{
+    const t=l.trim();return t?'      <p>'+t+'</p>':'      <br>';
+  }).join('\n');
+}
+
+// --- Conditions ---
+let conditions=[];
+function addCondition(){
+  conditions.push({col:'',type:'equals',value:''});
+  renderConditions();
+}
+function removeCondition(i){
+  conditions.splice(i,1);
+  renderConditions();
+}
+function updateCondition(i,key,val){
+  conditions[i][key]=val;
+  if(key==='type')renderConditions();
+}
+function renderConditions(){
+  const c=$('conditionsContainer');
+  c.innerHTML='';
+  conditions.forEach((cond,i)=>{
+    const row=document.createElement('div');
+    row.className='cond-row';
+    const needVal=cond.type==='equals'||cond.type==='contains';
+    row.innerHTML=`
+      <input type="text" class="col-input" value="${cond.col}" placeholder="列" maxlength="3"
+        onchange="updateCondition(${i},'col',this.value)" style="width:60px">
+      <span class="cond-label">列が</span>
+      <select onchange="updateCondition(${i},'type',this.value)">
+        <option value="equals"${cond.type==='equals'?' selected':''}>と一致</option>
+        <option value="not_empty"${cond.type==='not_empty'?' selected':''}>空でない</option>
+        <option value="empty"${cond.type==='empty'?' selected':''}>空である</option>
+        <option value="contains"${cond.type==='contains'?' selected':''}>を含む</option>
+      </select>
+      ${needVal?`<input type="text" class="val-input" value="${cond.value}" placeholder="値"
+        onchange="updateCondition(${i},'value',this.value)" style="width:140px">`:''}
+      <button class="remove-btn" onclick="removeCondition(${i})" title="削除">×</button>
+    `;
+    c.appendChild(row);
+  });
+}
+
+// --- UI Toggles ---
+function toggleAdvanced(){
+  const s=$('advSection');const a=$('advArrow');
+  if(s.classList.contains('hidden')){s.classList.remove('hidden');a.classList.add('open')}
+  else{s.classList.add('hidden');a.classList.remove('open')}
+}
+let previewOpen=false;
+function togglePreview(){
+  previewOpen=!previewOpen;
+  const pa=$('previewArea');
+  if(previewOpen){pa.classList.remove('hidden')}else{pa.classList.add('hidden')}
+}
+
+// --- Validation ---
+function validate(){
+  const errs=[];
+  if(!val('fromEmail'))errs.push('送信元メールアドレスが未入力です');
+  else if(!val('fromEmail').includes('@'))errs.push('送信元メールアドレスの形式が正しくありません');
+  if(val('senderName').includes('@'))errs.push('送信者名にメールアドレスが入っています。表示名（例: Tatsuki Saotome）を入力してください');
+  if(!val('testEmail'))errs.push('テスト送信先が未入力です');
+  if(!val('sheetUrl')&&!val('sheetName'))errs.push('スプレッドシートURLまたはシート名のいずれかを入力してください');
+  const ec=val('emailCol');
+  if(!ec)errs.push('メールアドレス列が未入力です');
+  else if(!/^[A-Za-z]{1,3}$/.test(ec))errs.push('メールアドレス列は英字で入力してください');
+  const sc=val('statusCol');
+  if(sc&&!/^[A-Za-z]{1,3}$/.test(sc))errs.push('ステータス列は英字で入力してください');
+  const scc=val('sendCountCol');
+  if(scc&&!/^[A-Za-z]{1,3}$/.test(scc))errs.push('送信回数列は英字で入力してください');
+  if(!val('subject'))errs.push('件名が未入力です');
+  if(!val('bodyText'))errs.push('メール本文が未入力です');
+  const sr=numVal('startRow'),er=numVal('endRow');
+  if(sr<1)errs.push('開始行は1以上にしてください');
+  if(er<sr)errs.push('終了行は開始行以上にしてください');
+  if(numVal('maxSendCount')<1)errs.push('最大送信回数は1以上にしてください');
+  conditions.forEach(cond=>{
+    if(cond.col&&!/^[A-Za-z]{1,3}$/.test(cond.col.trim()))
+      errs.push('追加条件の列「'+cond.col+'」が不正です');
+  });
+  return errs;
+}
+
+// --- Generate ---
+function handleGenerate(){
+  const errs=validate();
+  const errBox=$('errors');
+  if(errs.length){
+    errBox.innerHTML=errs.map(e=>'<div>⚠ '+e+'</div>').join('');
+    errBox.classList.remove('hidden');
+    window.scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  errBox.classList.add('hidden');
+
+  const code=generateCode();
+  $('codeOutput').textContent=code;
+  $('outputArea').classList.remove('hidden');
+
+  // Preview
+  const body=$('bodyText').value;const sig=$('signature').value;
+  const previewHtml=bodyMode==='html'?body:textToMobileHtml(body);
+  $('previewSubject').textContent='件名: '+val('subject');
+  $('previewBody').innerHTML='<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.8;color:#333;max-width:600px">'+
+    previewHtml+
+    (sig?'<div style="margin-top:30px;border-top:1px solid #eee;padding-top:20px;font-size:14px;color:#666">'+sig+'</div>':'')+
+    '</div>';
+
+  setTimeout(()=>$('outputArea').scrollIntoView({behavior:'smooth'}),100);
+}
+
+function generateCode(){
+  const fromEmail=val('fromEmail'),senderName=val('senderName'),ccEmail=val('ccEmail'),testEmail=val('testEmail');
+  const sheetUrl=val('sheetUrl'),sheetName=val('sheetName');
+  const emailCol=val('emailCol'),statusCol=val('statusCol'),statusValue=val('statusValue');
+  const sendCountCol=val('sendCountCol');
+  const startRow=numVal('startRow'),endRow=numVal('endRow'),maxSendCount=numVal('maxSendCount');
+  const waitMs=numVal('waitMs')||1500,timeoutMin=numVal('timeoutMin')||5,resumeMin=numVal('resumeMin')||1;
+  const subject=val('subject'),bodyText=$('bodyText').value,signature=$('signature').value;
+  const fileIdsRaw=$('fileIds').value;
+
+  const emailColIdx=colToIndex(emailCol)-1;
+  const statusColIdx=statusCol?colToIndex(statusCol)-1:null;
+  const sendCountColIdx=sendCountCol?colToIndex(sendCountCol)-1:null;
+  const sendCountColNum=sendCountColIdx!==null?sendCountColIdx+1:null;
+
+  const fileIdArr=fileIdsRaw.split('\n').map(s=>s.trim()).filter(Boolean).map(extractFileId);
+  const fileIdStr=fileIdArr.map(id=>"    '"+id+"'").join(',\n');
+
+  const escapedBody=escapeGAS(bodyText);
+  const bodyHtml=bodyMode==='html'?escapedBody:textToMobileHtml(escapedBody);
+  const escapedSig=signature?escapeGAS(signature):'';
+
+  const sheetIdMatch=sheetUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  const sheetId=sheetIdMatch?sheetIdMatch[1]:'';
+
+  let sheetAccess=sheetId
+    ?"  // スプレッドシートをIDで開く\n  const ss = SpreadsheetApp.openById('"+sheetId+"');"
+    :"  // アクティブなスプレッドシートを使用\n  const ss = SpreadsheetApp.getActiveSpreadsheet();";
+
+  let sheetGet='';
+  if(sheetName){
+    sheetGet="\n  // シート名で取得\n  let sheet = ss.getSheetByName('"+sheetName+"');\n  if (!sheet) {\n    console.error('シート「"+sheetName+"」が見つかりません。');\n    return;\n  }";
+  }else{
+    sheetGet="\n  // 最初のシートを使用\n  let sheet = ss.getSheets()[0];";
+  }
+
+  // 条件組み立て
+  let condParts=['isValidEmail(email)'];
+  if(statusColIdx!==null&&statusValue)condParts.push("status === '"+statusValue+"'");
+  if(sendCountColNum!==null)condParts.push('currentCount < CONFIG.SEND_LIMIT');
+  conditions.forEach(cond=>{
+    if(!cond.col.trim())return;
+    const ci=colToIndex(cond.col)-1;
+    if(ci===null)return;
+    const v=cond.value.trim();
+    if(cond.type==='equals'&&v)condParts.push("row["+ci+"] === '"+v+"'");
+    else if(cond.type==='not_empty')condParts.push("row["+ci+"] !== '' && row["+ci+"] != null");
+    else if(cond.type==='empty')condParts.push("(row["+ci+"] === '' || row["+ci+"] == null)");
+    else if(cond.type==='contains'&&v)condParts.push("(typeof row["+ci+"] === 'string' && row["+ci+"].indexOf('"+v+"') !== -1)");
+  });
+  const condStr=condParts.join(' && ');
+
+  let sendCountVars='',sendCountUpdate='';
+  if(sendCountColNum!==null){
+    sendCountVars="\n    let sendCount = row["+sendCountColIdx+"];  // "+sendCountCol+"列\n    let currentCount = (sendCount === '' || isNaN(sendCount)) ? 0 : parseInt(sendCount);";
+    sendCountUpdate="\n        sheet.getRange(i + 1, "+sendCountColNum+").setValue(currentCount + 1);";
+  }
+
+  let statusVar='';
+  if(statusColIdx!==null&&statusValue)statusVar="\n    let status = row["+statusColIdx+"];      // "+statusCol+"列";
+
+  let attachDef='',attachOpt='';
+  if(fileIdArr.length){
+    attachDef="\n  const attachments = CONFIG.FILE_IDS.map(id => DriveApp.getFileById(id).getBlob());";
+    attachOpt="\n          attachments: attachments,";
+  }
+
+  let ccOpt='';
+  if(ccEmail)ccOpt="\n          cc: CONFIG.CC_EMAIL,";
+
+  let nameOpt='';
+  if(senderName)nameOpt="\n          name: CONFIG.SENDER_NAME,";
+
+  let sigBlock='';
+  if(escapedSig)sigBlock="\n      <div style=\"margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; font-size: 14px; color: #666;\">\n        "+escapedSig+"\n      </div>";
+
+  const today=new Date().toLocaleDateString('ja-JP');
+
+  return `/**
+ * ===================================
+ * GAS 自動メール送信スクリプト
+ * 生成日: ${today}
+ * ===================================
+ */
+
+/**
+ * 設定情報（ここだけ編集すればOK）
+ */
+const CONFIG = {
+  FROM_EMAIL: '${fromEmail}',${senderName?"\n  SENDER_NAME: '"+senderName+"',":""}${ccEmail?"\n  CC_EMAIL: '"+ccEmail+"',":""}
+  TEST_EMAIL: '${testEmail}',
+  SHEET_NAME: '${sheetName}',
+  SEND_LIMIT: ${maxSendCount},
+  START_ROW: ${startRow},
+  END_ROW: ${endRow},${fileIdArr.length?"\n  FILE_IDS: [\n"+fileIdStr+"\n  ],":""}
+  TIME_LIMIT_MS: ${timeoutMin} * 60 * 1000,  // ${timeoutMin}分
+  WAIT_MS: ${waitMs},                         // 送信間隔(ms)
+  RESUME_MIN: ${resumeMin}                     // 再開までの待ち時間(分)
+};
+
+/**
+ * メール内容
+ */
+const MAIL_CONTENT = {
+  subject: \`${escapeGAS(subject)}\`,
+  htmlBody: \`
+    <div style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.8; color: #333; max-width: 600px; margin: auto; padding: 10px;">
+${bodyHtml}${sigBlock}
+    </div>
+  \`
+};
+
+/**
+ * 【メイン】一括送信
+ */
+function sendEmails() {
+  const startTime = new Date().getTime();
+${sheetAccess}
+${sheetGet}
+
+  const data = sheet.getDataRange().getValues();
+  const props = PropertiesService.getScriptProperties();
+  let startRow = parseInt(props.getProperty('CURRENT_ROW')) || (CONFIG.START_ROW - 1);
+  const lastRow = Math.min(data.length, CONFIG.END_ROW);
+${attachDef}
+
+  let sentCount = 0;
+
+  for (let i = startRow; i < lastRow; i++) {
+    // タイムアウトチェック
+    if (new Date().getTime() - startTime > CONFIG.TIME_LIMIT_MS) {
+      props.setProperty('CURRENT_ROW', i.toString());
+      setTimer();
+      console.log(\`\${i + 1}行目で一時停止。\${CONFIG.RESUME_MIN}分後に再開します。(今回 \${sentCount}通送信)\`);
+      return;
+    }
+
+    let row = data[i];
+    let email = row[${emailColIdx}]; // ${emailCol}列${statusVar}${sendCountVars}
+
+    if (${condStr}) {
+      try {
+        GmailApp.sendEmail(email, MAIL_CONTENT.subject, '', {
+          from: CONFIG.FROM_EMAIL,${nameOpt}${ccOpt}${attachOpt}
+          htmlBody: MAIL_CONTENT.htmlBody
+        });${sendCountUpdate}
+        sentCount++;
+        console.log(\`\${i + 1}行目: \${email} へ送信成功\`);
+        Utilities.sleep(CONFIG.WAIT_MS);
+      } catch (e) {
+        console.error(\`\${i + 1}行目: \${email} エラー: \${e.message}\`);
+      }
+    }
+  }
+  resetProgress();
+  console.log(\`すべての処理を完了しました。合計 \${sentCount}通送信。\`);
+}
+
+/**
+ * 【テスト】1通だけテスト送信
+ */
+function sendTestEmail() {${attachDef?"\n  const attachments = CONFIG.FILE_IDS.map(id => DriveApp.getFileById(id).getBlob());":""}
+  GmailApp.sendEmail(CONFIG.TEST_EMAIL, MAIL_CONTENT.subject, '', {
+    from: CONFIG.FROM_EMAIL,${nameOpt}${ccOpt}${attachOpt}
+    htmlBody: MAIL_CONTENT.htmlBody
+  });
+  console.log(\`テスト送信完了: \${CONFIG.TEST_EMAIL}\`);
+}
+
+/**
+ * 進捗リセット＆トリガー削除
+ */
+function resetProgress() {
+  const props = PropertiesService.getScriptProperties();
+  props.deleteProperty('CURRENT_ROW');
+  ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
+  console.log('進捗をリセットしました。');
+}
+
+/**
+ * タイマーセット（中断後の自動再開）
+ */
+function setTimer() {
+  ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('sendEmails')
+    .timeBased()
+    .after(CONFIG.RESUME_MIN * 60 * 1000)
+    .create();
+}
+
+/**
+ * メールアドレス簡易バリデーション
+ */
+function isValidEmail(email) {
+  if (!email || typeof email !== 'string') return false;
+  const e = email.toString().trim();
+  return e.indexOf('@') !== -1 && e.indexOf('.') !== -1 && !e.includes('http');
+}`;
+}
+
+// --- Copy ---
+function handleCopy(){
+  const code=$('codeOutput').textContent;
+  const btn=$('copyBtn');
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(code).then(()=>{
+      btn.textContent='✓ コピー済み';btn.classList.add('copied');
+      setTimeout(()=>{btn.textContent='コピー';btn.classList.remove('copied')},2000);
+    });
+  }else{
+    const ta=document.createElement('textarea');ta.value=code;
+    document.body.appendChild(ta);ta.select();document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent='✓ コピー済み';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='コピー';btn.classList.remove('copied')},2000);
+  }
+}
+</script>
+</body>
+</html>
