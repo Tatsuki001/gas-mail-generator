@@ -201,7 +201,13 @@ textarea{resize:vertical;line-height:1.6;font-family:var(--mono)}
           <input type="number" id="maxSendCount" value="2" min="1">
         </div>
       </div>
-      <div></div>
+      <div>
+        <div class="field">
+          <label>送信日記録列</label>
+          <input type="text" id="sentDateCol" class="col-input" placeholder="N" maxlength="3">
+          <div class="hint">空欄なら記録なし。最終送信日時（2026/04/17 14:30 形式）を毎回上書き</div>
+        </div>
+      </div>
     </div>
 
     <!-- フィルター -->
@@ -424,6 +430,8 @@ function validate(){
   if(sc&&!/^[A-Za-z]{1,3}$/.test(sc))errs.push('ステータス列は英字で入力してください');
   const scc=val('sendCountCol');
   if(scc&&!/^[A-Za-z]{1,3}$/.test(scc))errs.push('送信回数列は英字で入力してください');
+  const sdc=val('sentDateCol');
+  if(sdc&&!/^[A-Za-z]{1,3}$/.test(sdc))errs.push('送信日記録列は英字で入力してください');
   if(!val('subject'))errs.push('件名が未入力です');
   if(!val('bodyText'))errs.push('メール本文が未入力です');
   const sr=numVal('startRow'),er=numVal('endRow');
@@ -470,6 +478,7 @@ function generateCode(){
   const sheetUrl=val('sheetUrl'),sheetName=val('sheetName');
   const emailCol=val('emailCol'),statusCol=val('statusCol'),statusValue=val('statusValue');
   const sendCountCol=val('sendCountCol');
+  const sentDateCol=val('sentDateCol');
   const startRow=numVal('startRow'),endRow=numVal('endRow'),maxSendCount=numVal('maxSendCount');
   const waitMs=numVal('waitMs')||1500,timeoutMin=numVal('timeoutMin')||5,resumeMin=numVal('resumeMin')||1;
   const subject=val('subject'),bodyText=$('bodyText').value,signature=$('signature').value;
@@ -479,6 +488,8 @@ function generateCode(){
   const statusColIdx=statusCol?colToIndex(statusCol)-1:null;
   const sendCountColIdx=sendCountCol?colToIndex(sendCountCol)-1:null;
   const sendCountColNum=sendCountColIdx!==null?sendCountColIdx+1:null;
+  const sentDateColIdx=sentDateCol?colToIndex(sentDateCol)-1:null;
+  const sentDateColNum=sentDateColIdx!==null?sentDateColIdx+1:null;
 
   const fileIdArr=fileIdsRaw.split('\n').map(s=>s.trim()).filter(Boolean).map(extractFileId);
   const fileIdStr=fileIdArr.map(id=>"    '"+id+"'").join(',\n');
@@ -521,6 +532,11 @@ function generateCode(){
   if(sendCountColNum!==null){
     sendCountVars="\n    let sendCount = row["+sendCountColIdx+"];  // "+sendCountCol+"列\n    let currentCount = (sendCount === '' || isNaN(sendCount)) ? 0 : parseInt(sendCount);";
     sendCountUpdate="\n        sheet.getRange(i + 1, "+sendCountColNum+").setValue(currentCount + 1);";
+  }
+
+  let sentDateUpdate='';
+  if(sentDateColNum!==null){
+    sentDateUpdate="\n        sheet.getRange(i + 1, "+sentDateColNum+").setValue(Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy/MM/dd HH:mm'));  // "+sentDateCol+"列: 最終送信日時";
   }
 
   let statusVar='';
@@ -610,7 +626,7 @@ ${attachDef}
         GmailApp.sendEmail(email, MAIL_CONTENT.subject, '', {
           from: CONFIG.FROM_EMAIL,${nameOpt}${ccOpt}${attachOpt}
           htmlBody: MAIL_CONTENT.htmlBody
-        });${sendCountUpdate}
+        });${sendCountUpdate}${sentDateUpdate}
         sentCount++;
         console.log(\`\${i + 1}行目: \${email} へ送信成功\`);
         Utilities.sleep(CONFIG.WAIT_MS);
